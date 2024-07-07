@@ -2,9 +2,9 @@ import os
 import torch
 
 # data constants
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-DATA_PATH = os.path.join(PROJECT_ROOT, 'data')
+DATA_PATH = os.path.join(ROOT_DIR, 'data')
 
 # initial files
 LABELLED_DATA = os.path.join(DATA_PATH, 'labelled_data')
@@ -14,6 +14,7 @@ REQUESTS_DATA = os.path.join(DATA_PATH, 'requests')
 # preprocessed files
 OBTAINED_DATA = os.path.join(DATA_PATH, 'obtained_data')
 ABSA_PREPROCESSED = os.path.join(OBTAINED_DATA, 'absa_aspects_and_categories.pkl')
+
 
 # saved models
 MODELS = os.path.join(DATA_PATH, 'models')

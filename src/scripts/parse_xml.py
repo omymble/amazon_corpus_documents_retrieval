@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import pandas as pd
 import os
-from constants import LABELLED_DATA, OBTAINED_DATA
+from config import LABELLED_DATA, OBTAINED_DATA
 
 
 def extract_aspects(sentence):

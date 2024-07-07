@@ -8,7 +8,7 @@ import os
 import time
 import pickle
 from metrics_logger import MetricsLogger
-from constants import *
+from config import *
 
 
 class AspectNERDataset(Dataset):
