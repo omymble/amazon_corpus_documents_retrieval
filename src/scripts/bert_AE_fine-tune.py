@@ -111,7 +111,7 @@ def train():
         # Validation step can be added here if a validation dataset is available
 
     # Save the model and the label encoder
-    model.save_pretrained("models/saved_model")
+    model.save_pretrained("models/saved_models")
     with open("models/label_encoder.pkl", "wb") as f:
         pickle.dump(label_encoder, f)
 

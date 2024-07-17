@@ -13,3 +13,5 @@ data/
 *.pkl
 *.npy
 *.pt
+
+/hybrid_search/

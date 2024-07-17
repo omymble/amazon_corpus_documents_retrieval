@@ -41,11 +41,11 @@ certifi==2023.7.22
     #   elastic-transport
     #   httpcore
     #   httpx
-    #   requests
+    #   splitted_requests
 charset-normalizer==3.2.0
     # via
     #   aiohttp
-    #   requests
+    #   splitted_requests
 click==8.1.7
     # via
     #   flask
@@ -140,7 +140,7 @@ idna==3.4
     # via
     #   anyio
     #   httpx
-    #   requests
+    #   splitted_requests
     #   yarl
 importlib-metadata==6.8.0
     # via
@@ -330,7 +330,7 @@ urllib3==1.26.16
     #   botocore
     #   cohere
     #   elastic-transport
-    #   requests
+    #   splitted_requests
 werkzeug==2.3.7
     # via flask
 wheel==0.41.3
