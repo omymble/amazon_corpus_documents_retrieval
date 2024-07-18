@@ -5,16 +5,25 @@ from config.config import *
 import json
 import re
 import html
+from io import StringIO
 
 
 def clean_narrative(narrative):
     """
     Clean request texts in requests2011.xml
     """
-    narrative = html.unescape(narrative)  # Decode HTML entities
-    narrative = re.sub(r'<br\s*/?>', ' ', narrative)  # Remove <br> tags
-    narrative = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', narrative)  # Keep only the content inside <a> tags
+    narrative = html.unescape(narrative)
+    narrative = re.sub(r'<br\s*/?>', ' ', narrative)
+    narrative = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', narrative)
     return narrative.strip()
+
+
+def clean_xml_content(xml_content):
+    """
+    Clean XML content to escape special characters
+    """
+    xml_content = re.sub(r'&(?!amp;|lt;|gt;|quot;|apos;)', '&amp;', xml_content)
+    return xml_content
 
 
 def parse_topic(topic):
@@ -22,7 +31,7 @@ def parse_topic(topic):
     Extract information from <topic> tag in requests2011.xml
     """
     topic_data = {}
-    topic_data['id'] = topic.get('id')
+    topic_data['id'] = int(topic.get('id'))
 
     title = html.unescape(topic.find('title').text.strip())
     narrative = html.unescape(topic.find('narrative').text.strip())
@@ -71,30 +80,18 @@ def parse_topic(topic):
     return topic_data
 
 
-def preprocess_xml(file_path):
-    """
-    Pre-process the XML file to escape invalid characters.
-    """
-    with open(file_path, 'r', encoding='utf-8') as file:
-        content = file.read()
-
-    # Escape invalid characters
-    content = re.sub(r'&(?!amp;|lt;|gt;|quot;|apos;)', '&amp;', content)
-
-    processed_file_path = file_path + '.processed.xml'
-    with open(processed_file_path, 'w', encoding='utf-8') as file:
-        file.write(content)
-
-    return processed_file_path
-
-
 def parse_requests_xml_to_df(input_xml_file):
-    """"
+    """
     Creates pandas df from nested requests2011.xml
     """
-    processed_file = preprocess_xml(input_xml_file)
 
-    tree = ET.parse(processed_file)
+    with open(input_xml_file, 'r', encoding='utf-8') as file:
+        xml_content = file.read()
+
+    # Clean XML content
+    xml_content = clean_xml_content(xml_content)
+
+    tree = ET.ElementTree(ET.fromstring(xml_content))
     root = tree.getroot()
 
     topics_data = []
@@ -104,6 +101,14 @@ def parse_requests_xml_to_df(input_xml_file):
     df = pd.DataFrame(topics_data)
     df.set_index('id', inplace=True)
 
+    return df
+
+
+def parse_qrels(input_file_path) -> pd.DataFrame:
+    columns = ['topic', 'ignore1', 'doc_id', 'relevance']
+    dtype = {'topic': int, 'ignore1': int, 'doc_id': int, 'relevance': int}
+    df = pd.read_csv(input_file_path, sep=' ', header=None, names=columns, dtype=dtype)
+    df.drop(columns=['ignore1'], inplace=True)
     return df
 
 
