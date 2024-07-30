@@ -5,9 +5,13 @@ from config.config import *
 import json
 import re
 import html
-from io import StringIO
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
+nltk.download('punkt')
 
+# REQUESTS 2011 FUNCTIONS
 def clean_narrative(narrative):
     """
     Clean request texts in requests2011.xml
@@ -154,11 +158,133 @@ def extract_aspects_per_sentences(input_file_path):
     df['num_targets'] = df['targets'].apply(lambda x: len(x))
     return df
 
+def clean_text(text):
+    """
+    Removes HTML tags and punctuation from the text.
+    """
+    text = re.sub(r'<[^>]+>', '', text)
+    text = text.replace('\\', '')
+    # Tokenize the text
+    tokens = word_tokenize(text)
+    # Remove punctuation while keeping words intact
+    words = [word for word in tokens if word.isalnum()]
+    cleaned_text = ' '.join(words)
+    return cleaned_text
+
+def extract_aspects_sliding_window(input_file_path, window_size=3):
+    """
+    Extracts aspects from labelled reviews XML file using a sliding window approach.
+    :param input_file_path: Path to the input XML file
+    :param window_size: Number of sentences in each window
+    :return: pandas DataFrame with 'text', 'span', 'label', and 'ordinal' attributes
+    """
+    tree = ET.parse(input_file_path)
+    root = tree.getroot()
+
+    records = []
+
+    for review in root.findall('Review'):
+        review_sentences = []
+
+        for sentence in review.find('sentences').findall('sentence'):
+            text = sentence.find('text').text
+            if text:
+                cleaned_text = clean_text(text)
+                review_sentences.append({
+                    'text': cleaned_text,
+                    'opinions': sentence.find('Opinions')
+                })
+
+        for i in range(len(review_sentences) - window_size + 1):
+            window_sentences = review_sentences[i:i + window_size]
+            window_text = ' [SEP] '.join([s['text'] for s in window_sentences])
+
+            aspect_count = {}
+            for j, sentence in enumerate(window_sentences):
+                opinions = sentence['opinions']
+                if opinions is not None:
+                    for opinion in opinions.findall('Opinion'):
+                        target = opinion.attrib.get('target')
+                        if target:
+                            polarity = opinion.attrib.get('polarity')
+                            cleaned_target = clean_text(target)
+
+                            # Update aspect occurrence count
+                            if cleaned_target not in aspect_count:
+                                aspect_count[cleaned_target] = 0
+                            else:
+                                aspect_count[cleaned_target] += 1
+
+                            records.append({
+                                'text': window_text,
+                                'span': cleaned_target,
+                                'label': polarity,
+                                'ordinal': aspect_count[cleaned_target]
+                            })
+
+    df = pd.DataFrame(records)
+    return df
+
+
+def extract_every_aspect(input_file_path):
+    """
+    Extracts aspects one by one from every text of labelled reviews xml file
+    :param input_file_path: initial file
+    :return: pandas dataframe with 'text', 'sentence', 'span', 'label', 'ordinal' attributes
+    """
+    tree = ET.parse(input_file_path)
+    root = tree.getroot()
+
+    records = []
+
+    for review in root.findall('Review'):
+        review_texts = []
+        review_sentences = []
+        aspect_count = {}
+
+        for sentence in review.find('sentences').findall('sentence'):
+            text = sentence.find('text').text
+            if text:
+                cleaned_text = clean_text(text)
+                review_texts.append(cleaned_text)
+                review_sentences.append(cleaned_text)
+
+        full_text = '. '.join(review_texts)
+
+        for sentence in review.find('sentences').findall('sentence'):
+            text = sentence.find('text').text
+            if text:
+                cleaned_text = clean_text(text)
+
+            opinions = sentence.find('Opinions')
+            if opinions is not None:
+                for opinion in opinions.findall('Opinion'):
+                    target = opinion.attrib.get('target')
+                    if target:
+                        polarity = opinion.attrib.get('polarity')
+
+                        # Update aspect occurrence count
+                        if target not in aspect_count:
+                            aspect_count[target] = 0
+                        else:
+                            aspect_count[target] += 1
+
+                        records.append({
+                            'text': full_text,
+                            'sentence': cleaned_text,
+                            'span': target,
+                            'label': polarity,
+                            'ordinal': aspect_count[target]
+                        })
+
+    df = pd.DataFrame(records)
+    return df
+
 
 def extract_aspects_categories_polarities(input_file_path):
     """
-    saves pandas dataframe with new attributes
-    extracted from labelled xml file. Extracts information on the text level.
+    Saves pandas dataframe with new attributes extracted from labelled XML file.
+    Extracts information on the text level.
     :param input_file_path: initial file
     :return: pandas dataframe with 'text', 'aspects', 'categories', 'polarities' attributes
     """
@@ -177,36 +303,31 @@ def extract_aspects_categories_polarities(input_file_path):
         review_polarities = []
 
         for sentence in review.find('sentences').findall('sentence'):
-            # Extract the text and append it to the review_text list
             text = sentence.find('text').text
-            review_text.append(text)
+            if text:
+                cleaned_text = clean_text(text)
+                review_text.append(cleaned_text)
 
-            # Extract opinions if they exist
             opinions = sentence.find('Opinions')
             if opinions is not None:
                 for opinion in opinions.findall('Opinion'):
-                    # Extract the target, category, and polarity
                     target = opinion.attrib.get('target')
-                    if target:  # Only include explicit targets
+                    if target:
                         category = opinion.attrib.get('category')
                         polarity = opinion.attrib.get('polarity')
 
-                        # Append to the lists
                         review_targets.append(target)
                         review_categories.append(category)
                         review_polarities.append(polarity)
 
-            # Join the review_text list to form a single string
-        full_text = ' '.join(review_text)
+        full_text = ' [SEP] '.join(review_text)
 
-        # Append the extracted data to the main lists
         if review_targets:
             texts.append(full_text)
             targets.append(review_targets)
             categories.append(review_categories)
             polarities.append(review_polarities)
 
-    # Create a DataFrame
     df = pd.DataFrame({
         'text': texts,
         'targets': targets,
@@ -232,6 +353,7 @@ def split_requests_xml(file_path, output_folder):
     print(f"XML file split into {len(root.findall('topic'))} files in {output_folder}")
 
 
+# BOOKS FUNCTIONS
 def parse_date(date_str):
     """Keep only the year for books data"""
     try:
