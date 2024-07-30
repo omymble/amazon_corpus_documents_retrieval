@@ -5,6 +5,7 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 config/keys.py
+*wandb/
 
 models/
 data/
