@@ -1,5 +1,5 @@
 from parse_functions import (extract_aspects_categories_polarities, extract_aspects_per_sentences,
-                             extract_every_aspect, extract_aspects_sliding_window)
+                             extract_every_aspect, absa_xml_to_setfit_df)
 from config.config import *
 import argparse
 
@@ -7,8 +7,8 @@ labelled_absa_file = os.path.join(LABELLED_DATA, 'absa_annotated_reviews.xml')
 
 
 def main():
-    output_file_path = os.path.join(OBTAINED_DATA, 'setfit_window.pkl')
-    df = extract_aspects_sliding_window(labelled_absa_file)
+    output_file_path = os.path.join(OBTAINED_DATA, 'setfit_sentences.pkl')
+    df = absa_xml_to_setfit_df(labelled_absa_file)
     df.to_pickle(output_file_path)
     print(f"DataFrame saved to {output_file_path}")
     # if model_name == 'bert-base-cased':

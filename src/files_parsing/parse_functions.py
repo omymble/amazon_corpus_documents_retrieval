@@ -7,9 +7,11 @@ import re
 import html
 import nltk
 from nltk.tokenize import word_tokenize
+import string
 from nltk.corpus import stopwords
 
-nltk.download('punkt')
+# nltk.download('punkt')
+
 
 # REQUESTS 2011 FUNCTIONS
 def clean_narrative(narrative):
@@ -18,7 +20,12 @@ def clean_narrative(narrative):
     """
     narrative = html.unescape(narrative)
     narrative = re.sub(r'<br\s*/?>', ' ', narrative)
+    narrative = re.sub(r'\s+', ' ', narrative)
+
+    narrative = re.sub(r'<a href="/work/[^>]*>(.*?)</a>', r'[B_TITLE] \1 [E_TITLE]', narrative)
+    narrative = re.sub(r'<a href="/author/[^>]*>(.*?)</a>', r'[B_AUTHOR] \1 [E_AUTHOR]', narrative)
     narrative = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', narrative)
+
     return narrative.strip()
 
 
@@ -38,8 +45,11 @@ def parse_topic(topic):
     topic_data['id'] = int(topic.get('id'))
 
     title = html.unescape(topic.find('title').text.strip())
-    narrative = html.unescape(topic.find('narrative').text.strip())
+
+    narrative = ET.tostring(topic.find('narrative'), encoding='unicode', method='html')
+    narrative = narrative.replace('<narrative>', '').replace('</narrative>', '').strip()
     narrative_cleaned = clean_narrative(narrative)
+
     if not re.match(r'.*[.!?]$', title):
         title += '.'
     topic_data['request'] = f"{title} {narrative_cleaned}"
@@ -88,11 +98,9 @@ def parse_requests_xml_to_df(input_xml_file):
     """
     Creates pandas df from nested requests2011.xml
     """
-
     with open(input_xml_file, 'r', encoding='utf-8') as file:
         xml_content = file.read()
 
-    # Clean XML content
     xml_content = clean_xml_content(xml_content)
 
     tree = ET.ElementTree(ET.fromstring(xml_content))
@@ -113,6 +121,39 @@ def parse_qrels(input_file_path) -> pd.DataFrame:
     dtype = {'topic': int, 'ignore1': int, 'doc_id': int, 'relevance': int}
     df = pd.read_csv(input_file_path, sep=' ', header=None, names=columns, dtype=dtype)
     df.drop(columns=['ignore1'], inplace=True)
+    return df
+
+
+# LABELLED ABSA TO DF
+def absa_xml_to_setfit_df(xml_file):
+    # Parse the XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    data = []
+
+    for review in root.findall('Review'):
+        for sentence in review.find('sentences').findall('sentence'):
+            opinions = sentence.find('Opinions')
+            if opinions is not None:
+                text = sentence.find('text').text
+                text = clean_narrative(text)  # Clean text from unnecessary tags and links
+
+                for opinion in opinions.findall('Opinion'):
+                    target = opinion.get('target')
+                    if target:  # Only consider opinions with explicit targets
+                        span = target
+                        label = opinion.get('polarity')
+                        occurrence = opinion.get('occurrence')
+                        occurrence = int(occurrence) - 1
+                        data.append({
+                            'text': text,
+                            'span': span,
+                            'label': label,
+                            'ordinal': occurrence
+                        })
+
+    df = pd.DataFrame(data, columns=['text', 'span', 'label', 'ordinal'])
     return df
 
 
@@ -158,72 +199,19 @@ def extract_aspects_per_sentences(input_file_path):
     df['num_targets'] = df['targets'].apply(lambda x: len(x))
     return df
 
+
 def clean_text(text):
     """
     Removes HTML tags and punctuation from the text.
     """
+    if text is None:
+        return ''
     text = re.sub(r'<[^>]+>', '', text)
     text = text.replace('\\', '')
-    # Tokenize the text
-    tokens = word_tokenize(text)
-    # Remove punctuation while keeping words intact
-    words = [word for word in tokens if word.isalnum()]
-    cleaned_text = ' '.join(words)
-    return cleaned_text
-
-def extract_aspects_sliding_window(input_file_path, window_size=3):
-    """
-    Extracts aspects from labelled reviews XML file using a sliding window approach.
-    :param input_file_path: Path to the input XML file
-    :param window_size: Number of sentences in each window
-    :return: pandas DataFrame with 'text', 'span', 'label', and 'ordinal' attributes
-    """
-    tree = ET.parse(input_file_path)
-    root = tree.getroot()
-
-    records = []
-
-    for review in root.findall('Review'):
-        review_sentences = []
-
-        for sentence in review.find('sentences').findall('sentence'):
-            text = sentence.find('text').text
-            if text:
-                cleaned_text = clean_text(text)
-                review_sentences.append({
-                    'text': cleaned_text,
-                    'opinions': sentence.find('Opinions')
-                })
-
-        for i in range(len(review_sentences) - window_size + 1):
-            window_sentences = review_sentences[i:i + window_size]
-            window_text = ' [SEP] '.join([s['text'] for s in window_sentences])
-
-            aspect_count = {}
-            for j, sentence in enumerate(window_sentences):
-                opinions = sentence['opinions']
-                if opinions is not None:
-                    for opinion in opinions.findall('Opinion'):
-                        target = opinion.attrib.get('target')
-                        if target:
-                            polarity = opinion.attrib.get('polarity')
-                            cleaned_target = clean_text(target)
-
-                            # Update aspect occurrence count
-                            if cleaned_target not in aspect_count:
-                                aspect_count[cleaned_target] = 0
-                            else:
-                                aspect_count[cleaned_target] += 1
-
-                            records.append({
-                                'text': window_text,
-                                'span': cleaned_target,
-                                'label': polarity,
-                                'ordinal': aspect_count[cleaned_target]
-                            })
-
-    df = pd.DataFrame(records)
-    return df
+    # tokens = word_tokenize(text)
+    # tokens = [word for word in tokens if word not in string.punctuation]
+    # cleaned_text = ' '.join(tokens)
+    return text
 
 
 def extract_every_aspect(input_file_path):
@@ -338,6 +326,7 @@ def extract_aspects_categories_polarities(input_file_path):
     return df
 
 
+# REQUESTS 2016
 def split_requests_xml(file_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
 

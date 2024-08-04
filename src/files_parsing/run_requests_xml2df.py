@@ -9,6 +9,8 @@ def main():
     df = parse_requests_xml_to_df(input_xml_file)
     df.to_pickle(output_pkl_file)
 
+    print(f"DataFrame saved to {output_pkl_file}")
+
 
 if __name__ == '__main__':
     main()
