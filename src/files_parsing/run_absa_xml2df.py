@@ -7,20 +7,10 @@ labelled_absa_file = os.path.join(LABELLED_DATA, 'absa_annotated_reviews.xml')
 
 
 def main():
-    output_file_path = os.path.join(OBTAINED_DATA, 'setfit_sentences.pkl')
+    output_file_path = os.path.join(OBTAINED_DATA, 'setfit_categories.pkl')
     df = absa_xml_to_setfit_df(labelled_absa_file)
     df.to_pickle(output_file_path)
     print(f"DataFrame saved to {output_file_path}")
-    # if model_name == 'bert-base-cased':
-    #     output_file_path = os.path.join(OBTAINED_DATA, 'absa_aspects_categories_polarities.pkl')
-    #     df = extract_aspects_categories_polarities(labelled_absa_file)
-    #     df.to_pickle(output_file_path)
-    #     print(f"DataFrame saved to {output_file_path}")
-    # if model_name == 't5-base-uncased':
-    #     output_file_path = os.path.join(OBTAINED_DATA, 'absa_aspects_categories_polarities.pkl')
-    #     df = extract_aspects_categories_polarities(labelled_absa_file)
-    #     df.to_pickle(output_file_path)
-    #     print(f"DataFrame saved to {output_file_path}")
 
 
 if __name__ == '__main__':

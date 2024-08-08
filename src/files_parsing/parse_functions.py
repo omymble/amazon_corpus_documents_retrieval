@@ -13,19 +13,29 @@ from nltk.corpus import stopwords
 # nltk.download('punkt')
 
 
-# REQUESTS 2011 FUNCTIONS
+# REQUESTS 2011 VERSION
 def clean_narrative(narrative):
     """
-    Clean request texts in requests2011.xml
+    Clean narrative texts in XML
     """
     narrative = html.unescape(narrative)
     narrative = re.sub(r'<br\s*/?>', ' ', narrative)
     narrative = re.sub(r'\s+', ' ', narrative)
+    narrative = re.sub(r'http\S+|www\S+', '', narrative)  # Remove URLs
+    narrative = re.sub(r'<[^>]+>', '', narrative)  # Remove all tags
+    return narrative.strip()
 
+
+def parse_links(narrative):
+    """
+    Parse <a> links with custom tags and clean text
+    """
+    narrative = html.unescape(narrative)
+    narrative = re.sub(r'http\S+|www\S+', '', narrative)  # Remove URLs
+    narrative = re.sub(r'<br\s*/?>', ' ', narrative)
+    narrative = re.sub(r'\s+', ' ', narrative)
     narrative = re.sub(r'<a href="/work/[^>]*>(.*?)</a>', r'[B_TITLE] \1 [E_TITLE]', narrative)
     narrative = re.sub(r'<a href="/author/[^>]*>(.*?)</a>', r'[B_AUTHOR] \1 [E_AUTHOR]', narrative)
-    narrative = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', narrative)
-
     return narrative.strip()
 
 
@@ -39,7 +49,7 @@ def clean_xml_content(xml_content):
 
 def parse_topic(topic):
     """
-    Extract information from <topic> tag in requests2011.xml
+    Extract information from <topic> tag in XML
     """
     topic_data = {}
     topic_data['id'] = int(topic.get('id'))
@@ -49,10 +59,13 @@ def parse_topic(topic):
     narrative = ET.tostring(topic.find('narrative'), encoding='unicode', method='html')
     narrative = narrative.replace('<narrative>', '').replace('</narrative>', '').strip()
     narrative_cleaned = clean_narrative(narrative)
+    narrative_with_tags = parse_links(narrative)
 
     if not re.match(r'.*[.!?]$', title):
         title += '.'
+
     topic_data['request'] = f"{title} {narrative_cleaned}"
+    topic_data['request_tags'] = f"{title} {narrative_with_tags}"
 
     topic_data['group'] = html.unescape(topic.find('group').text.strip())
 
@@ -96,7 +109,7 @@ def parse_topic(topic):
 
 def parse_requests_xml_to_df(input_xml_file):
     """
-    Creates pandas df from nested requests2011.xml
+    Creates pandas DataFrame from nested XML
     """
     with open(input_xml_file, 'r', encoding='utf-8') as file:
         xml_content = file.read()
@@ -144,16 +157,18 @@ def absa_xml_to_setfit_df(xml_file):
                     if target:  # Only consider opinions with explicit targets
                         span = target
                         label = opinion.get('polarity')
+                        category = opinion.get('category')
                         occurrence = opinion.get('occurrence')
                         occurrence = int(occurrence) - 1
                         data.append({
                             'text': text,
                             'span': span,
                             'label': label,
-                            'ordinal': occurrence
+                            'ordinal': occurrence,
+                            'category': category
                         })
 
-    df = pd.DataFrame(data, columns=['text', 'span', 'label', 'ordinal'])
+    df = pd.DataFrame(data, columns=['text', 'span', 'label', 'category', 'ordinal'])
     return df
 
 
