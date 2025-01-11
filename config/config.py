@@ -14,15 +14,16 @@ BOOKS_DATA = os.path.join(DATA_PATH, 'amazon_lt_collection_small/')
 
 # preprocessed files
 OBTAINED_DATA = os.path.join(DATA_PATH, 'obtained_data/')
-SPLIT_REQUESTS = os.path.join(OBTAINED_DATA, 'split_requests/')
+SPLIT_REQUESTS = os.path.join(OBTAINED_DATA, 'split_requests2016/')
 ABSA_PREPROCESSED = os.path.join(OBTAINED_DATA, 'absa_aspects_and_categories.pkl')
 
 
 # saved models
 MODELS = os.path.join(DATA_PATH, 'models')
 
+
 # commons
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 MAX_LEN = 128
 BATCH_SIZE = 16
